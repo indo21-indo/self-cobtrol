@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>বাংলা Text to Voice</title>
+
+  <!-- Font Awesome CDN -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali&display=swap');
+
+    :root {
+      --color-bg-light: #f0f4f8;
+      --color-text-light: #2c3e50;
+      --color-bg-dark: #121212;
+      --color-text-dark: #e0e0e0;
+      --color-primary: #2ecc71;
+      --color-primary-dark: #27ae60;
+      --color-toast-bg: #2ecc71;
+    }
+
+    /* Light mode styles */
+    body.light {
+      background: var(--color-bg-light);
+      color: var(--color-text-light);
+    }
+    /* Dark mode styles */
+    body.dark {
+      background: var(--color-bg-dark);
+      color: var(--color-text-dark);
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Noto Sans Bengali', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+      transition: background 0.3s, color 0.3s;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      user-select: none;
+    }
+
+    .box {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+      padding: 25px 35px;
+      width: 100%;
+      max-width: 480px;
+      box-sizing: border-box;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    body.dark .box {
+      background: #1e1e1e;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.6);
+    }
+
+    textarea {
+      width: 100%;
+      font-size: 16px;
+      font-family: inherit;
+      resize: none;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      padding: 12px 15px;
+      box-sizing: border-box;
+      transition: border-color 0.3s, background 0.3s, color 0.3s;
+      min-height: 100px;
+    }
+    body.dark textarea {
+      background: #2c2c2c;
+      border-color: #555;
+      color: var(--color-text-dark);
+    }
+    textarea:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 8px var(--color-primary);
+    }
+
+    button {
+      margin-top: 18px;
+      background: var(--color-primary);
+      border: none;
+      padding: 12px 22px;
+      font-size: 17px;
+      color: white;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: var(--color-primary-dark);
+    }
+    button:disabled {
+      background: #a6d6b8;
+      cursor: not-allowed;
+    }
+
+    audio {
+      margin-top: 25px;
+      width: 100%;
+      outline: none;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      background: white;
+    }
+    body.dark audio {
+      background: #2c2c2c;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.7);
+    }
+
+    /* Toast styling */
+    .toast {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--color-toast-bg);
+      color: white;
+      padding: 12px 28px;
+      border-radius: 30px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      z-index: 9999;
+      user-select: none;
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .toast.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Dark/Light toggle button */
+    #toggle-theme {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      background: transparent;
+      border: none;
+      color: inherit;
+      font-size: 24px;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.3s;
+    }
+    #toggle-theme:hover {
+      color: var(--color-primary);
+    }
+  </style>
+</head>
+<body class="light">
+
+  <button id="toggle-theme" title="Toggle Dark/Light Mode" aria-label="Toggle Dark/Light Mode">
+    <i class="fa-regular fa-moon"></i>
+  </button>
+
+  <h1><i class="fa-solid fa-volume-high"></i> বাংলা Text to Voice</h1>
+
+  <div class="box">
+    <textarea id="text" placeholder="বাংলা টেক্সট লিখুন..." spellcheck="false" autocomplete="off"></textarea>
+    <button id="generate-btn" aria-live="polite">
+      <i class="fa-solid fa-microphone"></i> ভয়েস জেনারেট করুন
+    </button>
+
+    <audio id="player" controls style="display:none"></audio>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const toggleBtn = document.getElementById('toggle-theme');
+    const body = document.body;
+    const toast = document.getElementById('toast');
+    const generateBtn = document.getElementById('generate-btn');
+    const textArea = document.getElementById('text');
+    const player = document.getElementById('player');
+
+    // Load saved theme or default to light
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      body.className = savedTheme;
+      updateToggleIcon();
+    }
+
+    toggleBtn.onclick = () => {
+      if (body.classList.contains('light')) {
+        body.className = 'dark';
+        localStorage.setItem('theme', 'dark');
+      } else {
+        body.className = 'light';
+        localStorage.setItem('theme', 'light');
+      }
+      updateToggleIcon();
+    };
+
+    function updateToggleIcon() {
+      const icon = toggleBtn.querySelector('i');
+      if (body.classList.contains('dark')) {
+        icon.className = 'fa-regular fa-sun'; // sun icon in dark mode
+      } else {
+        icon.className = 'fa-regular fa-moon'; // moon icon in light mode
+      }
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    generateBtn.addEventListener('click', async () => {
+      const text = textArea.value.trim();
+      if (!text) {
+        showToast('⚠️ একটি টেক্সট দিন');
+        return;
+      }
+
+      generateBtn.disabled = true;
+      showToast('🎧 ভয়েস তৈরি হচ্ছে...');
+
+      try {
+        const res = await fetch(`/speak?msg=${encodeURIComponent(text)}`);
+        const data = await res.json();
+
+        if (data.url) {
+          player.src = data.url;
+          player.style.display = 'block';
+          player.play();
+          showToast('✅ ভয়েস প্রস্তুত!');
+        } else {
+          showToast('❌ সমস্যা হয়েছে');
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('❌ নেটওয়ার্ক সমস্যা');
+      } finally {
+        generateBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
